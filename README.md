@@ -1,5 +1,7 @@
 # LLM Walk-Through
 
+> *"The best way to understand an opaque system is to build it from scratch and watch it fail until it doesn't."*
+
 > 从原理到实现，亲手解剖**现代大语言模型的演进轨迹**——以 GPT-2 为起点，
 > 一处一处地"换积木"，看清每一步设计取舍背后的真问题。
 
@@ -134,7 +136,3 @@ experiments/         # 消融脚本与解释（V1 起填充）
 ## License
 
 MIT.
-
----
-
-> *"The best way to understand an opaque system is to build it from scratch and watch it fail until it doesn't."*
