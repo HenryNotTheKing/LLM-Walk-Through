@@ -1,0 +1,11 @@
+name: gpt2_774m
+vocab_size: 50257
+n_layer: 36
+n_head: 20
+n_embd: 1280
+block_size: 1024
+dropout: 0.0
+bias: true
+tie_weights: true
+attn_impl: sdpa
+init_std: 0.02

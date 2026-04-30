@@ -1,0 +1,60 @@
+[project]
+name = "llm-walk-through"
+version = "0.1.0"
+description = "从原理到实现：亲手解剖现代大语言模型 (GPT-2 → LLaMA)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "LLM Walk-Through" }]
+
+dependencies = [
+    "torch>=2.2.0",
+    "numpy>=1.26",
+    "omegaconf>=2.3",
+    "tqdm>=4.66",
+    "regex>=2024.4.16",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+# HuggingFace 权重对齐用，仅在 sanity check / convert 脚本里需要
+hf = [
+    "transformers>=4.40",
+    "tokenizers>=0.15",
+]
+# 测试与开发
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+]
+# CUDA 才装；CPU/MPS 不装也可以正常运行
+flash = [
+    "flash-attn>=2.5; platform_system != 'Windows'",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["core"]
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+markers = [
+    "slow: 较慢的测试，默认跳过",
+    "network: 需要联网下载",
+    "cuda: 需要 CUDA GPU",
+    "ddp: 需要多卡或 torchrun 启动",
+]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = ["E501"]

@@ -1,0 +1,12 @@
+# 本地调试 / 单测专用：CPU 几秒可跑通，参数量 ~0.5M
+name: gpt2_tiny
+vocab_size: 1024
+n_layer: 2
+n_head: 2
+n_embd: 64
+block_size: 64
+dropout: 0.0
+bias: true
+tie_weights: true
+attn_impl: sdpa
+init_std: 0.02

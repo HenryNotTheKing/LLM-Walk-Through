@@ -1,0 +1,45 @@
+defaults:
+  model: configs/model/gpt2_tiny.yaml
+
+# tiny shakespeare + gpt2_tiny，CPU 下 200 步内即可看到 loss 明显下降
+data:
+  name: tiny_shakespeare
+  cache_dir: data/cache/tiny_shakespeare
+  tokenizer:
+    kind: bpe                           # bpe | byte_bpe | wordpiece | unigram | gpt2
+    vocab_size: 1024                    # 仅在自训分词器时使用（gpt2 走预训练词表）
+    train_on_first_n_chars: 200000      # 在原始语料前 N 个字符上训练分词器，加速
+
+train:
+  out_dir: runs/tiny_shakespeare
+  batch_size: 16
+  block_size: 64
+  grad_accum_steps: 1
+  max_steps: 200
+  eval_interval: 50
+  eval_iters: 20
+  log_interval: 10
+
+  # 优化器
+  optimizer: adamw
+  learning_rate: 3.0e-3
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  grad_clip: 1.0
+
+  # 学习率调度
+  lr_schedule: cosine                  # constant | cosine
+  warmup_steps: 20
+  min_lr: 3.0e-4
+
+  # 精度与设备
+  device: auto                         # auto | cuda | mps | cpu
+  dtype: auto                          # auto | float32 | bfloat16 | float16
+  amp: true                            # 仅在 cuda 且 dtype != float32 时实际启用
+
+  seed: 1337
+  compile: false                       # torch.compile，默认关，避免 MPS 下不稳定
+
+distributed:
+  backend: none                        # none | ddp
