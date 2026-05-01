@@ -45,8 +45,11 @@ uv run torchrun --nproc_per_node=2 -m train.pretrain `
 
 1. 在 `core/<module_dir>/` 下加入新文件，并在该目录 `__init__.py` 暴露主类。
 2. 在 `tests/` 下加对应 `test_*.py`，至少覆盖：shape、数值正确性、梯度可反传、边界条件。
-3. 在 `docs/` 下按 [`_template_module_report.md`](_template_module_report.md) 写模块报告，
-   填齐 References 三类资源 + Code Map 表（至少各一个源码、测试、配置链接）。
+3. 在 `docs/` 下按 [`_template_module_report.ipynb`](_template_module_report.ipynb) 编写模块交互式文档。
+   - 所有文档均使用 Jupyter Notebook (.ipynb) 格式。
+   - **源码导航**: 在开头添加对源码的软链接（例如 `> 源码对应：[core/module/xxx.py](../../core/module/xxx.py)`）。
+   - **交互式代码块**: 编写 Python Cell 进行基础的数据维度展示与模型打印。
+   - **内容结构**: 必须包含核心原理（使用 LaTeX 公式）、实现解析、与前代模型的差异对比，以及参考资源。
 4. 在 `configs/model/*.yaml` 暴露开关，必要时加新尺寸配置。
 
 ## 提交前检查
