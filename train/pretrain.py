@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import argparse
 import math
-import os
 import time
 from pathlib import Path
+
+from tqdm.auto import tqdm
 
 import numpy as np
 import torch
@@ -22,7 +23,7 @@ from core.model import GPT2Config, GPT2LMHeadModel
 from core.utils.config import load_config
 from core.utils.device import amp_enabled, select_device, select_dtype
 from core.utils.distributed import cleanup_distributed, setup_distributed
-from data.tiny_shakespeare import prepare as prepare_tiny_shakespeare
+from data.hf_text import prepare as prepare_hf_text
 
 
 def parse_args() -> argparse.Namespace:
@@ -72,10 +73,8 @@ def estimate_loss(model, train_data, val_data, cfg, device) -> dict[str, float]:
     return out
 
 
-def main() -> None:
-    args = parse_args()
-    cfg = load_config(args.config, overrides=args.overrides)
-
+def train(cfg) -> None:
+    """训练主逻辑，接收 OmegaConf 配置对象，方便在 Notebook 中直接调用。"""
     dist_info = setup_distributed(cfg.distributed.backend)
 
     train_cfg = cfg.train
@@ -91,12 +90,22 @@ def main() -> None:
         print(f"[setup] device={device} dtype={dtype} amp={use_amp} world_size={dist_info.world_size}")
 
     # ----- 数据 -----
-    data_info = prepare_tiny_shakespeare(
-        cache_dir=cfg.data.cache_dir,
-        tokenizer_kind=cfg.data.tokenizer.kind,
-        vocab_size=int(cfg.data.tokenizer.vocab_size),
-        train_on_first_n_chars=int(cfg.data.tokenizer.train_on_first_n_chars),
-    )
+    if cfg.data.name == "hf_text":
+        data_info = prepare_hf_text(
+            cache_dir=cfg.data.cache_dir,
+            repo_id=cfg.data.hf.repo_id,
+            split=cfg.data.hf.split,
+            subset_name=cfg.data.hf.subset_name,
+            text_field=cfg.data.hf.text_field,
+            max_samples=None if cfg.data.hf.max_samples is None else int(cfg.data.hf.max_samples),
+            max_chars=None if cfg.data.hf.max_chars is None else int(cfg.data.hf.max_chars),
+            hf_endpoint=cfg.data.hf.hf_endpoint,
+            tokenizer_kind=cfg.data.tokenizer.kind,
+            vocab_size=int(cfg.data.tokenizer.vocab_size),
+            val_ratio=float(cfg.data.hf.val_ratio),
+        )
+    else:
+        raise ValueError(f"不支持的数据集类型: {cfg.data.name!r}")
     train_data = np.memmap(data_info["train_bin"], dtype=data_info["dtype"], mode="r")
     val_data = np.memmap(data_info["val_bin"], dtype=data_info["dtype"], mode="r")
 
@@ -134,7 +143,15 @@ def main() -> None:
 
     model.train()
     t0 = time.time()
-    for step in range(int(train_cfg.max_steps) + 1):
+    max_steps = int(train_cfg.max_steps)
+    pbar = tqdm(
+        range(max_steps + 1),
+        desc="训练",
+        unit="step",
+        dynamic_ncols=True,
+        disable=not dist_info.is_main,
+    )
+    for step in pbar:
         # 设学习率
         lr = get_lr(step, train_cfg)
         for pg in optimizer.param_groups:
@@ -143,7 +160,7 @@ def main() -> None:
         # 评估
         if step % int(train_cfg.eval_interval) == 0 and dist_info.is_main:
             metrics = estimate_loss(raw_model, train_data, val_data, train_cfg, device)
-            print(f"[eval] step={step} train={metrics['train']:.4f} val={metrics['val']:.4f}")
+            tqdm.write(f"[eval] step={step} train={metrics['train']:.4f} val={metrics['val']:.4f}")
             ckpt = {
                 "model": raw_model.state_dict(),
                 "model_cfg": model_cfg.__dict__,
@@ -151,7 +168,7 @@ def main() -> None:
             }
             torch.save(ckpt, out_dir / "ckpt.pt")
 
-        if step == int(train_cfg.max_steps):
+        if step == max_steps:
             break
 
         # 一个 step（含梯度累积）
@@ -181,9 +198,19 @@ def main() -> None:
 
         if step % int(train_cfg.log_interval) == 0 and dist_info.is_main:
             dt = time.time() - t0
-            print(f"[train] step={step} loss={loss.item()*int(train_cfg.grad_accum_steps):.4f} lr={lr:.2e} dt={dt:.1f}s")
+            pbar.set_postfix(
+                loss=f"{loss.item() * int(train_cfg.grad_accum_steps):.4f}",
+                lr=f"{lr:.2e}",
+                dt=f"{dt:.1f}s",
+            )
 
     cleanup_distributed()
+
+
+def main() -> None:
+    args = parse_args()
+    cfg = load_config(args.config, overrides=args.overrides)
+    train(cfg)
 
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@
 
 示例：
     python -m scripts.generate \
-        --checkpoint runs/tiny_shakespeare/ckpt.pt \
-        --tokenizer data/cache/tiny_shakespeare/tokenizer.json \
+        --checkpoint runs/smoltalk_chinese_small/ckpt.pt \
+        --tokenizer data/cache/smoltalk_chinese_small/tokenizer.json \
         --prompt "ROMEO:" --max-new-tokens 200 --top-k 50 --top-p 0.95 --temperature 0.9
 """
 

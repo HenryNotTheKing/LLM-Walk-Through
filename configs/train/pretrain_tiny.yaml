@@ -1,17 +1,26 @@
 defaults:
   model: configs/model/gpt2_tiny.yaml
 
-# tiny shakespeare + gpt2_tiny，CPU 下 200 步内即可看到 loss 明显下降
+# Hugging Face 中文数据子集 + gpt2_tiny，默认跑一个很小的子集验证训练流程
 data:
-  name: tiny_shakespeare
-  cache_dir: data/cache/tiny_shakespeare
+  name: hf_text
+  cache_dir: data/cache/smoltalk_chinese_small
+  hf:
+    repo_id: opencsg/smoltalk-chinese
+    subset_name: null
+    split: train
+    text_field: null                    # 留空时自动推断 text/messages 等字段
+    max_samples: 2000                   # 只取一个小子集，保证本地可快速跑通
+    max_chars: 2000000                  # 双保险：限制总文本字符数
+    val_ratio: 0.1
+    hf_endpoint: https://hf-mirror.com
   tokenizer:
     kind: bpe                           # bpe | byte_bpe | wordpiece | unigram | gpt2
-    vocab_size: 1024                    # 仅在自训分词器时使用（gpt2 走预训练词表）
-    train_on_first_n_chars: 200000      # 在原始语料前 N 个字符上训练分词器，加速
+    vocab_size: 2048                    # 仅在自训分词器时使用（gpt2 走预训练词表）
+    train_on_first_n_chars: 200000      # 仅 tiny_shakespeare 路径使用；HF 数据可忽略
 
 train:
-  out_dir: runs/tiny_shakespeare
+  out_dir: runs/smoltalk_chinese_small
   batch_size: 16
   block_size: 64
   grad_accum_steps: 1

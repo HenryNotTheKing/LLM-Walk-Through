@@ -30,17 +30,17 @@ git clone https://github.com/your-org/llm-walk-through
 cd llm-walk-through
 uv sync                          # 基础依赖（CPU / MPS 即可，无需 GPU）
 
-# 2. 端到端预训练（tiny shakespeare，CPU 下约 3 分钟）
+# 2. 端到端预训练（HF 中文数据集小子集）
 uv run python -m train.pretrain --config configs/train/pretrain_tiny.yaml
 
 # 3. 用训练好的模型生成文本
 uv run python -m scripts.generate `
-    --checkpoint runs/tiny_shakespeare/ckpt.pt `
-    --tokenizer data/cache/tiny_shakespeare/tokenizer.json `
-    --prompt "ROMEO:" --max-new-tokens 200
+    --checkpoint runs/smoltalk_chinese_small/ckpt.pt `
+    --tokenizer data/cache/smoltalk_chinese_small/tokenizer.json `
+    --prompt "你好，请介绍一下你自己：" --max-new-tokens 200
 ```
 
-跑完这三步，你就有了一个在莎士比亚文本上预训练的微型 GPT-2。
+默认配置会从 Hugging Face 拉取 `opencsg/smoltalk-chinese` 的一个小子集，因此不再依赖 tiny shakespeare 的外链下载。
 
 ---
 
@@ -68,19 +68,19 @@ docs/                # 每个模块一篇技术底稿
 | [train/pretrain.py](train/pretrain.py) | 预训练主循环 |
 | [core/model/gpt2.py](core/model/gpt2.py) | GPT-2 模型组装 |
 | [configs/train/pretrain_tiny.yaml](configs/train/pretrain_tiny.yaml) | 最小训练配置（从这里调参） |
-| [docs/00_roadmap.ipynb](docs/00_roadmap.ipynb) | 项目路线图，了解已落地与待办 |
+| [docs/roadmap.ipynb](docs/roadmap.ipynb) | 项目路线图，了解已落地与待办 |
 
 ---
 
 ### 第三步：选一个感兴趣的方向深入
 
-**想理解分词器？** → [docs/01_tokenizer/README.ipynb](docs/01_tokenizer/README.ipynb)，4 种实现逐一对照。
+**想理解分词器？** → [docs/modules/tokenizer/index.ipynb](docs/modules/tokenizer/index.ipynb)，4 种实现逐一对照。
 
-**想理解注意力机制？** → [docs/03_attention_mha.ipynb](docs/03_attention_mha.ipynb)，从 MHA 到 GQA/MLA 的演进。
+**想理解注意力机制？** → [docs/modules/attention_mha.ipynb](docs/modules/attention_mha.ipynb)，从 MHA 到 GQA/MLA 的演进。
 
-**想跑通完整预训练？** → [docs/04_pretrain_minimal.ipynb](docs/04_pretrain_minimal.ipynb)，含梯度累积、混合精度、DDP 说明。
+**想跑通完整预训练？** → [docs/experiments/pretrain_minimal.ipynb](docs/experiments/pretrain_minimal.ipynb)，含梯度累积、混合精度、DDP 说明。
 
-**想看整体演进计划？** → [docs/00_roadmap.ipynb](docs/00_roadmap.ipynb)，V0 已落地，V1/V2/V3 路线。
+**想看整体演进计划？** → [docs/roadmap.ipynb](docs/roadmap.ipynb)，V0 已落地，V1/V2/V3 路线。
 
 ---
 
@@ -122,7 +122,7 @@ uv run pytest -m "slow and network"   # 触发 HF 权重对齐测试
 | 前馈 | GELU MLP (4× hidden) | **SwiGLU** → 稀疏 **MoE** |
 | KV Cache | 未启用 | Naive → **PagedAttention** → StreamingLLM |
 
-完整进度见 [docs/00_roadmap.ipynb](docs/00_roadmap.ipynb)。
+完整进度见 [docs/roadmap.ipynb](docs/roadmap.ipynb)。
 
 ---
 
@@ -140,3 +140,4 @@ uv run pytest -m "slow and network"   # 触发 HF 权重对齐测试
 ## License
 
 MIT.
+
