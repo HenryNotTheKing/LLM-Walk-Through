@@ -44,14 +44,20 @@ def load_config(path: str | Path, overrides: Sequence[str] | None = None) -> Dic
     命令行 dotlist 覆盖（例如 ``train.batch_size=8``）会在最后合并。
     """
     cfg = load_yaml(path)
-    if "defaults" in cfg:
-        defaults = cfg.pop("defaults")
-        merged = OmegaConf.create({})
-        for key, sub_path in defaults.items():
-            sub = load_yaml(sub_path)
-            merged[key] = sub
-        cfg = OmegaConf.merge(merged, cfg)
+
+    def _apply_defaults(cfg: DictConfig) -> DictConfig:
+        if "defaults" in cfg:
+            defaults = cfg.pop("defaults")
+            merged = OmegaConf.create({})
+            for key, sub_path in defaults.items():
+                sub = load_yaml(sub_path)
+                merged[key] = sub
+            cfg = OmegaConf.merge(cfg, merged)
+        return cfg
+
+    cfg = _apply_defaults(cfg)
     if overrides:
         cfg = OmegaConf.merge(cfg, OmegaConf.from_dotlist(list(overrides)))
+    cfg = _apply_defaults(cfg)
     assert isinstance(cfg, DictConfig)
     return cfg

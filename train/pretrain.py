@@ -20,10 +20,12 @@ import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from core.model import GPT2Config, GPT2LMHeadModel
+from core.tokenizer import build_tokenizer, load_tokenizer
 from core.utils.config import load_config
 from core.utils.device import amp_enabled, select_device, select_dtype
 from core.utils.distributed import cleanup_distributed, setup_distributed
-from data.hf_text import prepare as prepare_hf_text
+from data.download import download
+from data.encode import encode_corpus, iter_texts
 
 
 def parse_args() -> argparse.Namespace:
@@ -87,25 +89,56 @@ def train(cfg) -> None:
     use_amp = amp_enabled(device, dtype, bool(train_cfg.amp))
 
     if dist_info.is_main:
-        print(f"[setup] device={device} dtype={dtype} amp={use_amp} world_size={dist_info.world_size}")
+        cuda_info = ""
+        if device.type == "cpu" and torch.cuda.is_available():
+            cuda_info = f" (cuda available but not selected: {torch.cuda.get_device_name(0)})"
+        elif device.type == "cpu":
+            cuda_info = " (cuda NOT available — check PyTorch install, e.g. pip install torch --index-url https://download.pytorch.org/whl/cu121)"
+        print(f"[setup] device={device} dtype={dtype} amp={use_amp} world_size={dist_info.world_size}{cuda_info}")
 
     # ----- 数据 -----
-    if cfg.data.name == "hf_text":
-        data_info = prepare_hf_text(
-            cache_dir=cfg.data.cache_dir,
-            repo_id=cfg.data.hf.repo_id,
-            split=cfg.data.hf.split,
-            subset_name=cfg.data.hf.subset_name,
-            text_field=cfg.data.hf.text_field,
-            max_samples=None if cfg.data.hf.max_samples is None else int(cfg.data.hf.max_samples),
-            max_chars=None if cfg.data.hf.max_chars is None else int(cfg.data.hf.max_chars),
-            hf_endpoint=cfg.data.hf.hf_endpoint,
-            tokenizer_kind=cfg.data.tokenizer.kind,
-            vocab_size=int(cfg.data.tokenizer.vocab_size),
-            val_ratio=float(cfg.data.hf.val_ratio),
-        )
+    cache_dir = Path(cfg.data.cache_dir)
+    tokenizer_path = cache_dir / "tokenizer.json"
+
+    # 1. 下载数据
+    download(
+        repo_id=cfg.data.hf.repo_id,
+        local_dir=cache_dir,
+        subset_name=cfg.data.hf.subset_name,
+        num_shards=None if cfg.data.hf.num_shards is None else int(cfg.data.hf.num_shards),
+        hf_endpoint=cfg.data.hf.hf_endpoint,
+    )
+
+    # 2. 加载或训练分词器
+    if tokenizer_path.exists():
+        tok = load_tokenizer(tokenizer_path)
+        if dist_info.is_main:
+            print(f"[data] 复用已有分词器 kind={tok.KIND!r}: {tokenizer_path}")
     else:
-        raise ValueError(f"不支持的数据集类型: {cfg.data.name!r}")
+        kind = cfg.data.tokenizer.kind
+        vocab_size = int(cfg.data.tokenizer.vocab_size)
+        if dist_info.is_main:
+            print(f"[data] 训练分词器 kind={kind} vocab_size={vocab_size}")
+        sample_texts = []
+        sample_chars = 0
+        max_train_chars = 50_000_000
+        for text in iter_texts(cache_dir, max_chars=max_train_chars):
+            sample_texts.append(text)
+            sample_chars += len(text)
+            if sample_chars >= max_train_chars:
+                break
+        tok_cls = type(build_tokenizer(kind))
+        tok = tok_cls.train("\n\n".join(sample_texts), vocab_size=vocab_size, verbose=True)
+        tok.save(tokenizer_path)
+
+    # 3. 编码语料
+    data_info = encode_corpus(
+        cache_dir=cache_dir,
+        tokenizer=tok,
+        val_ratio=float(cfg.data.hf.val_ratio),
+        max_samples=None if cfg.data.hf.max_samples is None else int(cfg.data.hf.max_samples),
+        max_chars=None if cfg.data.hf.max_chars is None else int(cfg.data.hf.max_chars),
+    )
     train_data = np.memmap(data_info["train_bin"], dtype=data_info["dtype"], mode="r")
     val_data = np.memmap(data_info["val_bin"], dtype=data_info["dtype"], mode="r")
 

@@ -2,7 +2,7 @@
 
 设计要点：
     - 基于"字符序列 + 合并规则"的最朴素 BPE，便于教学，不追求与 GPT-2 官方词表完全一致；
-      若需要与 GPT-2 官方权重对齐，请使用 :mod:`core.tokenizer.gpt2_bpe`。
+      若需要与 GPT-2 官方权重对齐，请使用 :mod:`core.tokenizer.byte_bpe` 并训练同等大小的词表。
     - 训练算法：参考 Sennrich et al. 2016 "Neural Machine Translation of Rare Words with Subword Units"。
     - 单词内部以单字符为初始 token，结尾追加 ``</w>`` 标记词尾，避免跨词合并。
     - 词表 = 所有出现过的字符 ∪ 所有学到的合并产物 ∪ 特殊 token。
@@ -15,6 +15,8 @@ import re
 from collections import Counter
 from collections.abc import Iterable
 from pathlib import Path
+
+from tqdm.auto import tqdm
 
 from core.tokenizer.base import BaseTokenizer
 
@@ -117,6 +119,7 @@ class BPETokenizer(BaseTokenizer):
 
         merges: list[tuple[str, str]] = []
         vocab = dict(words)
+        pbar = tqdm(total=vocab_size, initial=len(token_to_id), desc="Training BPE", unit="token")
         while len(token_to_id) < vocab_size:
             pair_counts = _get_pair_counts(vocab)
             if not pair_counts:
@@ -127,13 +130,15 @@ class BPETokenizer(BaseTokenizer):
             merged_token = best_pair[0] + best_pair[1]
             if merged_token not in token_to_id:
                 token_to_id[merged_token] = len(token_to_id)
+                pbar.update(1)
             merges.append(best_pair)
             vocab = {
                 _merge_in_word(symbols, best_pair): freq
                 for symbols, freq in vocab.items()
             }
             if verbose and len(merges) % 100 == 0:
-                print(f"  merges={len(merges)} vocab={len(token_to_id)} top={best_pair}({best_freq})")
+                pbar.set_postfix(merges=len(merges), top=f"{best_pair}({best_freq})")
+        pbar.close()
 
         return cls(token_to_id=token_to_id, merges=merges)
 

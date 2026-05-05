@@ -22,18 +22,39 @@ nanoGPT 解决了"跑通一个模型"的问题。本项目回答的是：**GPT-2
 
 ## 从哪里开始
 
+### 环境准备
+
+```powershell
+# 1. 克隆
+git clone https://github.com/your-org/llm-walk-through
+cd llm-walk-through
+
+# 2. 创建虚拟环境（推荐 Python 3.12）
+uv venv --python 3.12
+
+# 3. 安装基础依赖
+uv sync                          # 默认安装 CPU 版 PyTorch，跨平台可用
+```
+
+**有 NVIDIA GPU 的读者**，需要额外覆盖安装 CUDA 版 PyTorch，否则训练会落到 CPU：
+
+```powershell
+# 自动检测 GPU 并安装匹配的 CUDA 版 PyTorch
+python scripts/install_torch.py --run
+
+# 验证 CUDA 是否可用
+uv run python -c "import torch; print(torch.cuda.is_available())"
+```
+
+---
+
 ### 第一步：5 分钟跑通最小闭环
 
 ```powershell
-# 1. 克隆 & 安装
-git clone https://github.com/your-org/llm-walk-through
-cd llm-walk-through
-uv sync                          # 基础依赖（CPU / MPS 即可，无需 GPU）
-
-# 2. 端到端预训练（HF 中文数据集小子集）
+# 端到端预训练（HF 中文数据集小子集）
 uv run python -m train.pretrain --config configs/train/pretrain_tiny.yaml
 
-# 3. 用训练好的模型生成文本
+# 用训练好的模型生成文本
 uv run python -m scripts.generate `
     --checkpoint runs/smoltalk_chinese_small/ckpt.pt `
     --tokenizer data/cache/smoltalk_chinese_small/tokenizer.json `

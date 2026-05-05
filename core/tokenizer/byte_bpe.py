@@ -9,7 +9,6 @@
 - **预切分仍用 GPT-2 那条正则**：先把文本粗切成单词/标点段，再做 BPE，避免跨段合并。
 
 这是从零造轮子的实现：不依赖 ``transformers`` / ``tokenizers``，可以独立训练。
-若只是想加载官方 ``gpt2`` 的 50257 词表做权重对齐，请用 :class:`core.tokenizer.gpt2_bpe.GPT2BPETokenizer`。
 """
 
 from __future__ import annotations
@@ -20,6 +19,8 @@ from collections import Counter
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
+
+from tqdm.auto import tqdm
 
 from core.tokenizer.base import BaseTokenizer
 
@@ -124,6 +125,7 @@ class ByteBPETokenizer(BaseTokenizer):
 
         merges: list[tuple[str, str]] = []
         vocab = dict(words)
+        pbar = tqdm(total=vocab_size, initial=len(token_to_id), desc="Training Byte-BPE", unit="token")
         while len(token_to_id) < vocab_size:
             pair_counts = _get_pair_counts(vocab)
             if not pair_counts:
@@ -134,10 +136,12 @@ class ByteBPETokenizer(BaseTokenizer):
             merged_token = best_pair[0] + best_pair[1]
             if merged_token not in token_to_id:
                 token_to_id[merged_token] = len(token_to_id)
+                pbar.update(1)
             merges.append(best_pair)
             vocab = {_merge(syms, best_pair): freq for syms, freq in vocab.items()}
             if verbose and len(merges) % 100 == 0:
-                print(f"  merges={len(merges)} vocab={len(token_to_id)} top={best_pair}({best_freq})")
+                pbar.set_postfix(merges=len(merges), top=f"{best_pair}({best_freq})")
+        pbar.close()
 
         return cls(token_to_id=token_to_id, merges=merges)
 

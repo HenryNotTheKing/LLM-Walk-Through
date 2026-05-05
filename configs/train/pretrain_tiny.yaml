@@ -3,7 +3,6 @@ defaults:
 
 # Hugging Face 中文数据子集 + gpt2_tiny，默认跑一个很小的子集验证训练流程
 data:
-  name: hf_text
   cache_dir: data/cache/smoltalk_chinese_small
   hf:
     repo_id: opencsg/smoltalk-chinese
@@ -14,6 +13,7 @@ data:
     max_chars: 2000000                  # 双保险：限制总文本字符数
     val_ratio: 0.1
     hf_endpoint: https://hf-mirror.com
+    num_shards: null
   tokenizer:
     kind: bpe                           # bpe | byte_bpe | wordpiece | unigram | gpt2
     vocab_size: 2048                    # 仅在自训分词器时使用（gpt2 走预训练词表）

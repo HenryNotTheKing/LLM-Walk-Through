@@ -15,7 +15,7 @@ from pathlib import Path
 import torch
 
 from core.model import GPT2Config, GPT2LMHeadModel
-from core.tokenizer import build_tokenizer, load_tokenizer
+from core.tokenizer import load_tokenizer
 from core.utils.device import select_device
 
 
@@ -24,8 +24,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--checkpoint", required=True)
     p.add_argument(
         "--tokenizer",
-        default=None,
-        help="自训分词器 JSON 路径（kind 自动从文件读出）；不指定时退回到 GPT-2 官方 BPE",
+        required=True,
+        help="分词器 JSON 路径（kind 自动从文件读出）。训练后的 checkpoint 必须与对应分词器配对使用。",
     )
     p.add_argument("--prompt", default="\n")
     p.add_argument("--max-new-tokens", type=int, default=100)
@@ -48,10 +48,7 @@ def main() -> None:
     model.load_state_dict(ckpt["model"])
     model.eval()
 
-    if args.tokenizer:
-        tok = load_tokenizer(args.tokenizer)
-    else:
-        tok = build_tokenizer("gpt2")
+    tok = load_tokenizer(args.tokenizer)
 
     ids = torch.tensor([tok.encode(args.prompt)], dtype=torch.long, device=device)
     if ids.size(1) == 0:
