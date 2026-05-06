@@ -44,7 +44,7 @@ def _resolve_subset_shards(
     )
 
 
-def c(
+def download(
     repo_id: str,
     local_dir: str | Path,
     *,
