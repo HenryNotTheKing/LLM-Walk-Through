@@ -1,0 +1,57 @@
+defaults:
+  model: configs/model/walkie_code_1b.yaml
+
+# 数据：两阶段。bin 路径由用户后续填入；缺失时 walkie_pretrain 会用随机 token 兜底。
+data:
+  stages:
+    main:
+      bin: null            # 例：data/cache/walkie_code/main.bin
+      dtype: uint32        # 65536 词表需要 uint32（>uint16 上限）
+    anneal:
+      bin: null            # 例：data/cache/walkie_code/anneal.bin
+      dtype: uint32
+
+train:
+  out_dir: runs/walkie_code_1b
+  block_size: 4096          # 训练上下文，可小于模型 block_size
+  batch_size: 4
+  grad_accum_steps: 16
+  total_steps: 200000
+  warmup_steps: 2000
+  anneal_start_ratio: 0.8   # 80% 主训练 + 20% 退火
+  decay_shape: sqrt         # sqrt | linear | cosine
+
+  # 评估 / checkpoint
+  eval_interval: 1000
+  eval_iters: 50
+  log_interval: 20
+  ckpt_interval: 2000
+
+  # 优化器 - AdamW（embedding/norm/bias/1D）
+  adamw:
+    peak_lr: 3.0e-4
+    final_lr: 3.0e-5
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-8
+    weight_decay: 0.1
+
+  # 优化器 - Muon（2D 矩阵权重）
+  muon:
+    peak_lr: 0.02
+    final_lr: 0.002
+    momentum: 0.95
+    nesterov: true
+    weight_decay: 0.0
+    ns_steps: 5
+
+  grad_clip: 1.0
+
+  device: auto
+  dtype: auto
+  amp: true
+  seed: 42
+  compile: false
+
+distributed:
+  backend: ddp              # ddp 或 none

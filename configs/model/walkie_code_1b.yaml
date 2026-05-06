@@ -1,0 +1,38 @@
+# Walkie-Code-1B 主配置：~964M 参数，纯英文 Python 代码专精
+name: walkie_code_1b
+model_name: Walkie-Code-1B
+
+# 词表 / 上下文
+vocab_size: 65536
+block_size: 16384
+
+# 主体维度
+n_embd: 1536
+n_layer: 36
+n_head: 24
+n_head_kv: 8
+head_dim: 64
+d_ffn: 3840
+
+# 归一化 / 位置 / FFN 选项
+rms_norm_eps: 1.0e-6
+rope_theta: 1.0e6
+rope_scaling_factor: 1.0
+qk_norm: true
+
+# 通用
+dropout: 0.0
+bias: false
+tie_weights: true
+attn_impl: sdpa
+init_std: 0.02
+
+# 数据流水线侧使用的 special tokens
+special_tokens:
+  fim_prefix: "<fim_prefix>"
+  fim_middle: "<fim_middle>"
+  fim_suffix: "<fim_suffix>"
+  fim_pad: "<fim_pad>"
+  repo_name: "<|repo_name|>"
+  file_sep: "<|file_sep|>"
+  endoftext: "<|endoftext|>"

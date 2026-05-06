@@ -1,0 +1,54 @@
+defaults:
+  model: configs/model/walkie_tiny.yaml
+
+# tiny 冒烟：随机数据兜底，CPU 几秒可跑
+data:
+  stages:
+    main:
+      bin: null
+      dtype: uint16
+    anneal:
+      bin: null
+      dtype: uint16
+
+train:
+  out_dir: runs/walkie_tiny
+  block_size: 64
+  batch_size: 4
+  grad_accum_steps: 1
+  total_steps: 10
+  warmup_steps: 2
+  anneal_start_ratio: 0.8
+  decay_shape: sqrt
+
+  eval_interval: 5
+  eval_iters: 2
+  log_interval: 1
+  ckpt_interval: 5
+
+  adamw:
+    peak_lr: 3.0e-4
+    final_lr: 3.0e-5
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-8
+    weight_decay: 0.1
+
+  muon:
+    peak_lr: 0.02
+    final_lr: 0.002
+    momentum: 0.95
+    nesterov: true
+    weight_decay: 0.0
+    ns_steps: 5
+
+  grad_clip: 1.0
+
+  device: auto
+  dtype: auto
+  amp: false
+  seed: 1337
+  compile: false
+
+distributed:
+  backend: none

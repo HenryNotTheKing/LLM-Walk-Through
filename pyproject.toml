@@ -29,6 +29,15 @@ dev = [
 flash = [
     "flash-attn>=2.5; platform_system != 'Windows'",
 ]
+# Walkie-Code-1B 训练专用依赖：默认 `uv sync` 不安装，
+# 需要训练 Walkie 时显式执行 `uv sync --extra walkie`。
+walkie = [
+    "tensorboard>=2.15",
+    "wandb>=0.16",
+    "safetensors>=0.4",
+    "psutil>=5.9",
+    "rich>=13.0",
+]
 
 [build-system]
 requires = ["hatchling"]
