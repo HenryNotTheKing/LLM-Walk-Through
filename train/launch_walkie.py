@@ -92,6 +92,9 @@ def main() -> None:
 
     print("[launch_walkie] " + " ".join(shlex.quote(c) for c in cmd))
     env = os.environ.copy()
+    env.setdefault("NCCL_ASYNC_ERROR_HANDLING", "1")
+    env.setdefault("TORCH_NCCL_ASYNC_ERROR_HANDLING", "1")
+    env.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
     rc = subprocess.call(cmd, env=env)
     sys.exit(rc)
 

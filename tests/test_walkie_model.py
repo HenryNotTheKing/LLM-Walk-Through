@@ -26,6 +26,15 @@ def test_walkie_forward_and_loss():
     assert loss.dim() == 0 and torch.isfinite(loss)
 
 
+def test_walkie_loss_without_returning_logits():
+    model = make_tiny()
+    idx = torch.randint(0, 128, (2, 8))
+    tgt = torch.randint(0, 128, (2, 8))
+    logits, loss = model(idx, tgt, return_logits=False)
+    assert logits is None
+    assert loss.dim() == 0 and torch.isfinite(loss)
+
+
 def test_walkie_inference_returns_last_step():
     model = make_tiny()
     logits, loss = model(torch.randint(0, 128, (2, 5)))
@@ -35,6 +44,17 @@ def test_walkie_inference_returns_last_step():
 
 def test_walkie_backward():
     model = make_tiny()
+    idx = torch.randint(0, 128, (2, 6))
+    tgt = torch.randint(0, 128, (2, 6))
+    _, loss = model(idx, tgt)
+    loss.backward()
+    assert model.tok_embeddings.weight.grad is not None
+
+
+def test_walkie_gradient_checkpointing_backward():
+    model = make_tiny()
+    model.cfg.gradient_checkpointing = True
+    model.train()
     idx = torch.randint(0, 128, (2, 6))
     tgt = torch.randint(0, 128, (2, 6))
     _, loss = model(idx, tgt)

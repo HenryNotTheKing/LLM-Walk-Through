@@ -1,36 +1,48 @@
 defaults:
-  model: configs/model/walkie_code_1b.yaml
+  model: configs/model/walkie_code_0.5b.yaml
 
 # 数据：两阶段。bin 路径由用户后续填入；缺失时 walkie_pretrain 会用随机 token 兜底。
 data:
   stages:
     main:
       bin: null            # 例：data/cache/walkie_code/main.bin
-      dtype: uint32        # 65536 词表需要 uint32（>uint16 上限）
+      val_bin: null        # 例：data/cache/walkie_code/main_val.bin；缺失时回退到 main.bin
+      dtype: uint16        # 65536 词表的 id 范围是 0..65535，可用 uint16
     anneal:
       bin: null            # 例：data/cache/walkie_code/anneal.bin
-      dtype: uint32
+      val_bin: null        # 例：data/cache/walkie_code/anneal_val.bin；缺失时回退到 anneal.bin
+      dtype: uint16
 
 train:
-  out_dir: runs/walkie_code_1b
-  block_size: 4096          # 训练上下文，可小于模型 block_size
-  batch_size: 4
-  grad_accum_steps: 16
-  total_steps: 200000
-  warmup_steps: 2000
-  anneal_start_ratio: 0.8   # 80% 主训练 + 20% 退火
-  decay_shape: sqrt         # sqrt | linear | cosine
+  out_dir: runs/walkie_code_0.5b
+  block_size: 4096
 
-  # 评估 / checkpoint
-  eval_interval: 1000
+  # ─── Batch 配置 ───────────────────────────────────
+  batch_size: 16           # 每卡 micro-batch；两卡 DDP 用 8 比 16 更稳，避免 bucket 峰值 OOM
+  grad_accum_steps: 16    # 8×16×4096×2 = 1,048,576 tokens/step，保持总 token/step 不变
+  sampling:
+    mode: shuffled_sequential  # 构建 block 起点索引，shuffle 后无放回顺序读取
+  # 若单卡训练，可手动改回 batch=16、grad_accum=8；两卡默认保守稳定优先
+
+  # ─── 步数（由 token 量精确推算）───────────────────
+  total_steps: 16707      # = (15,592,290,386 + 1,926,617,773) / 1,048,576
+  warmup_steps: 900       # 约 5.4% total steps；覆盖 943,718,400 tokens
+  anneal_start_ratio: 0.89
+                           # = 14869 / 16707（main train steps / total steps）
+  decay_shape: sqrt       # 保持，sqrt 收敛优于 linear（ICLR 2025 验证）
+
+  # ─── 评估 / Checkpoint（对齐新步数）──────────────
+  eval_interval: 500      # 原来 1000 → 500；每 ~500M tokens 评估一次
   eval_iters: 50
-  log_interval: 20
-  ckpt_interval: 2000
+  log_interval: 50
+  ckpt_interval: 100     # 每 ~1MB tokens 保存一次
+  save_step_checkpoints: true
+  keep_step_checkpoints: 3
 
   # 优化器 - AdamW（embedding/norm/bias/1D）
   adamw:
-    peak_lr: 3.0e-4
-    final_lr: 3.0e-5
+    peak_lr: 2.5e-4
+    final_lr: 2.5e-5
     beta1: 0.9
     beta2: 0.95
     eps: 1.0e-8
@@ -38,8 +50,8 @@ train:
 
   # 优化器 - Muon（2D 矩阵权重）
   muon:
-    peak_lr: 0.02
-    final_lr: 0.002
+    peak_lr: 0.015
+    final_lr: 0.0015
     momentum: 0.95
     nesterov: true
     weight_decay: 0.0
@@ -52,6 +64,17 @@ train:
   amp: true
   seed: 42
   compile: false
+  gradient_checkpointing: true
+
+  swanlab:
+    enabled: true
+    mode: online          # online | offline | disabled
+    project: walkie
+    experiment_name: walkie-code-0.5b
+    workspace: null
+    description: Walkie-Code-0.5B pretraining
+    tags: [walkie, code, 0.5b]
 
 distributed:
   backend: ddp              # ddp 或 none
+  static_graph: false

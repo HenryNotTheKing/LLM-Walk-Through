@@ -1,9 +1,8 @@
 # Code-Specialized 1B 英语模型完整计划书 v2
-## 目标：在 HumanEval / HumanEval+ / MBPP+ / LiveCodeBench 上全面超越 Maincoder-1B
+## 目标：在 HumanEval / HumanEval+ / MBPP+ / LiveCodeBench 上超越 Maincoder-1B
 
-> 修订版：基于 Maincoder-1B 真实架构分析 | 2026年5月
+> 修订版：基于 Maincoder-1B 架构分析
 
----
 
 ## 核心差异总览：我们 vs Maincoder-1B
 
@@ -195,7 +194,7 @@ Phase 1 可用 Python（权重放大后）：
 
 ### 3.2 Phase 2：Annealing（~150B tokens，WSD decay 阶段）
 
-**目标**：Python 专精 + 质量压缩 + 上下文扩展至 16K
+**目标**：Python 专精 + 质量压缩（上下文保持 4K）
 
 | 数据源 | 比例 | 估计 Token 量 | 说明 |
 |--------|------|--------------|------|
@@ -414,7 +413,7 @@ model:
   head_dim:          64
   ffn_dim:           4096
   vocab_size:        65536
-  max_position:      16384
+  max_position:      4096
   rope_theta:        1_000_000
   qk_norm:           true
   rms_norm_eps:      1e-6
@@ -467,15 +466,15 @@ total_tokens:        1_300_000_000_000   # 1.3T tokens
 
 phase2:
   total_tokens:      150_000_000_000    # 150B tokens
-  seq_len:           16384              # 上下文扩展到 16K
+  seq_len:           4096               # 上下文保持 4K，不做长序列扩展
   micro_batch:       2                  # seq_len加倍，micro_batch减半
   data_switch:       true               # 切换到高质量代码数据
   
   context_extension:
     # 在 Phase 2 开始时做 rope_theta 调整
-    rope_theta:      2_000_000          # NTK-aware scaling for 16K
+    rope_theta:      1_000_000          # 保持与 Phase 1 一致，不做长上下文 NTK 扩展
     # 前 10B tokens：seq_len 4096→8192
-    # 10-50B tokens：seq_len 8192→16384
+    # 不做长上下文扩展，整个训练保持 seq_len=4096
     curriculum:      true
 
   ast_fim:           true              # Annealing 阶段启用 AST-FIM
@@ -591,7 +590,7 @@ GRPO_CONFIG = {
 | Maincoder-1B | 76.22% | 72.56% | 70.90% | 1B | MCPO RL，ctx=2K |
 | Qwen2.5-Coder-1.5B | 46.34% | 44.51% | 65.61% | 1.5B | 5.5T tokens |
 | DeepSeek-Coder-1.3B | 56.10% | 53.05% | 62.17% | 1.3B | 2T tokens |
-| **YourCoder-1B（目标）** | **~70%** | **~65%** | **~72%** | ~1.4B | **ctx=16K, FIM** |
+| **YourCoder-1B（目标）** | **~70%** | **~65%** | **~72%** | ~1.4B | **ctx=4K, FIM** |
 
 > YourCoder 的优势在于：更大上下文 + FIM 能力 + BigCodeBench（库调用）表现更好
 > HumanEval 上 Maincoder 的 MCPO 优势很难复现，但其他 benchmark 可以超越
@@ -620,7 +619,7 @@ Week 5-18: Phase 1 主训练（1.3T tokens）
 
 Week 19-20: Phase 2 Annealing（150B tokens）
   ├── 切换高质量 Python 数据
-  ├── 上下文从 4K → 8K → 16K（分阶段）
+  ├── 上下文始终保持 4K
   ├── 启用 AST-FIM
   └── WSD sqrt decay → 0
 

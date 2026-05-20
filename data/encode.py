@@ -108,19 +108,42 @@ def _iter_json_examples(file_path: Path):
             yield payload
 
 
-def _iter_examples(snapshot_dir: Path, split: str):
-    split_key = split.replace("[", "_").replace("]", "_").replace(":", "_")
-    parquet_files = sorted(snapshot_dir.rglob("*.parquet"))
-    jsonl_files = sorted(snapshot_dir.rglob("*.jsonl"))
+def _is_hidden_path(path: Path, root: Path) -> bool:
+    return any(part.startswith(".") for part in path.relative_to(root).parts)
+
+
+def _list_data_files(root: Path) -> list[Path]:
+    parquet_files = [
+        path for path in sorted(root.rglob("*.parquet")) if not _is_hidden_path(path, root)
+    ]
+    jsonl_files = [
+        path for path in sorted(root.rglob("*.jsonl")) if not _is_hidden_path(path, root)
+    ]
     json_files = [
         path
-        for path in sorted(snapshot_dir.rglob("*.json"))
-        if path.name != "dataset_infos.json"
+        for path in sorted(root.rglob("*.json"))
+        if not _is_hidden_path(path, root)
+        and path.name not in {"dataset_infos.json", "data_meta.json"}
     ]
+    return parquet_files + jsonl_files + json_files
 
-    candidates = parquet_files + jsonl_files + json_files
+
+def _resolve_data_dir(cache_dir: Path) -> Path:
+    for candidate in (cache_dir / "hf_snapshot", cache_dir):
+        if candidate.exists() and _list_data_files(candidate):
+            return candidate
+
+    raise FileNotFoundError(
+        f"找不到数据目录 {cache_dir / 'hf_snapshot'}，且在 {cache_dir} 下也没有找到 parquet/jsonl/json 数据文件。"
+    )
+
+
+def _iter_examples(data_dir: Path, split: str):
+    split_key = split.replace("[", "_").replace("]", "_").replace(":", "_")
+    candidates = _list_data_files(data_dir)
+
     if not candidates:
-        raise ValueError(f"仓库 {snapshot_dir} 中没有找到可读取的数据文件。")
+        raise ValueError(f"仓库 {data_dir} 中没有找到可读取的数据文件。")
 
     preferred = [
         path
@@ -154,7 +177,7 @@ def iter_texts(
     max_samples: int | None = None,
     max_chars: int | None = None,
 ) -> Iterator[str]:
-    """流式迭代 ``cache_dir/hf_snapshot`` 下的语料文本。
+    """流式迭代 ``cache_dir`` 下的语料文本。
 
     若 ``data_meta.json`` 存在且对应参数为 ``None``，则从其中读取默认值。
     显式传入的参数优先级高于 ``data_meta.json`` 中的值。
@@ -163,11 +186,7 @@ def iter_texts(
         每条样本提取出的非空文本字符串。
     """
     cache_dir = Path(cache_dir)
-    snapshot_dir = cache_dir / "hf_snapshot"
-    if not snapshot_dir.exists():
-        raise FileNotFoundError(
-            f"找不到数据目录 {snapshot_dir}，请先调用 download() 下载数据。"
-        )
+    data_dir = _resolve_data_dir(cache_dir)
 
     meta = _read_meta(cache_dir)
     split = split if split is not None else meta.get("split", "train")
@@ -177,7 +196,7 @@ def iter_texts(
 
     seen_samples = 0
     seen_chars = 0
-    for example in _iter_examples(snapshot_dir, split=split):
+    for example in _iter_examples(data_dir, split=split):
         text = _extract_text(example, text_field=text_field)
         if not text:
             continue
@@ -229,7 +248,9 @@ def encode_corpus(
     max_chars = max_chars if max_chars is not None else meta.get("max_chars")
 
     vocab_size_out = tokenizer.vocab_size
-    dtype: np.dtype = np.dtype(np.uint16 if vocab_size_out < 65536 else np.uint32)
+    dtype: np.dtype = np.dtype(
+        np.uint16 if vocab_size_out <= np.iinfo(np.uint16).max + 1 else np.uint32
+    )
 
     if train_bin.exists() and val_bin.exists():
         print(f"[encode] bin 文件已存在，跳过重新编码。")

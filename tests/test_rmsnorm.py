@@ -15,6 +15,13 @@ def test_rmsnorm_shape_and_dtype():
     assert y.dtype == x.dtype
 
 
+def test_rmsnorm_preserves_low_precision_dtype_with_fp32_weight():
+    norm = RMSNorm(16)
+    x = torch.randn(2, 5, 16, dtype=torch.bfloat16)
+    y = norm(x)
+    assert y.dtype == torch.bfloat16
+
+
 def test_rmsnorm_unit_scale_when_weight_one():
     norm = RMSNorm(64)
     x = torch.randn(8, 64) * 5.0

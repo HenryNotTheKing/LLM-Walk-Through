@@ -57,11 +57,11 @@ def download(
     token: str | None = None,
     max_workers: int = 8,
 ) -> Path:
-    """从 Hugging Face Hub 下载资源到 ``local_dir/hf_snapshot/``。
+    """从 Hugging Face Hub 下载资源。
 
     Args:
         repo_id: HF 仓库 ID，如 ``"HuggingFaceFW/fineweb-edu"``。
-        local_dir: 本地保存根目录。下载内容会放在 ``local_dir/hf_snapshot/`` 下。
+        local_dir: 本地保存目录。下载内容会直接放在该目录下。
         repo_type: 仓库类型。``"dataset"`` | ``"model"`` | ``"space"``。
         allow_patterns: 显式文件过滤规则，优先级高于 ``subset_name`` 自动推导。
         ignore_patterns: 排除规则。
@@ -75,7 +75,7 @@ def download(
         max_workers: 下载并发数。
 
     Returns:
-        本地 snapshot 目录 ``local_dir/hf_snapshot/`` 的 :class:`~pathlib.Path`。
+        本地下载目录的 :class:`~pathlib.Path`。
 
     调用示例：
         .. code-block:: python
@@ -103,7 +103,7 @@ def download(
     """
     local_dir = Path(local_dir)
     local_dir.mkdir(parents=True, exist_ok=True)
-    snapshot_dir = local_dir / "hf_snapshot"
+    snapshot_dir = local_dir
 
     if hf_endpoint:
         os.environ["HF_ENDPOINT"] = hf_endpoint

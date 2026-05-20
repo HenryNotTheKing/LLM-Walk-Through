@@ -40,7 +40,14 @@ def apply_rope(
     while cos.dim() < x.dim():
         cos = cos.unsqueeze(0)
         sin = sin.unsqueeze(0)
-    return (x * cos) + (_rotate_half(x) * sin)
+    half = x.size(-1) // 2
+    x1, x2 = x.chunk(2, dim=-1)
+    cos_half = cos[..., :half]
+    sin_half = sin[..., :half]
+    return torch.cat(
+        (x1 * cos_half - x2 * sin_half, x2 * cos_half + x1 * sin_half),
+        dim=-1,
+    )
 
 
 class RotaryPositionalEmbedding(nn.Module):

@@ -5,7 +5,7 @@
     - **QK-Norm**：对每头 Q/K 各做一次 RMSNorm，提升训练稳定性。
     - **RoPE**：在 attention 内部对 Q/K 应用旋转位置编码，不污染 token embedding。
     - **bias=False**：默认全部线性层无 bias。
-    - 优先走 ``torch.nn.functional.scaled_dot_product_attention``，并保留 eager 路径作教学/对齐用。
+    - 优先走 FlashAttention2 或 ``torch.nn.functional.scaled_dot_product_attention``，并保留 eager 路径作教学/对齐用。
 """
 
 from __future__ import annotations
@@ -18,6 +18,17 @@ import torch.nn.functional as F
 
 from core.norm.rmsnorm import RMSNorm
 from core.position.rope import RotaryPositionalEmbedding, apply_rope
+
+
+def _load_flash_attn_func():
+    try:
+        from flash_attn import flash_attn_func
+    except ImportError as exc:
+        raise RuntimeError(
+            "attn_impl='flash_attn2' 需要安装 flash-attn。"
+            "Linux/CUDA 环境可尝试 `uv sync --extra flash --extra walkie`。"
+        ) from exc
+    return flash_attn_func
 
 
 def repeat_kv(x: torch.Tensor, n_rep: int) -> torch.Tensor:
@@ -109,28 +120,44 @@ class WalkieCausalSelfAttention(nn.Module):
         q = apply_rope(q, cos, sin)
         k = apply_rope(k, cos, sin)
 
-        # GQA：把 KV 头扩展到 Q 头数
-        k = repeat_kv(k, self.n_rep)
-        v = repeat_kv(v, self.n_rep)
-
-        if self.attn_impl == "sdpa":
+        if self.attn_impl == "flash_attn2":
+            if not x.is_cuda:
+                raise RuntimeError("attn_impl='flash_attn2' 仅支持 CUDA 张量")
+            if q.dtype not in (torch.float16, torch.bfloat16):
+                raise RuntimeError("attn_impl='flash_attn2' 需要 float16 或 bfloat16")
+            flash_attn_func = _load_flash_attn_func()
+            y = flash_attn_func(
+                q.transpose(1, 2).contiguous(),
+                k.transpose(1, 2).contiguous(),
+                v.transpose(1, 2).contiguous(),
+                dropout_p=self.dropout if self.training else 0.0,
+                causal=True,
+            )
+            y = y.reshape(B, T, self.n_head * self.head_dim)
+        elif self.attn_impl == "sdpa":
+            # SDPA 当前需要显式把 KV 头扩展到 Q 头数。
+            k = repeat_kv(k, self.n_rep)
+            v = repeat_kv(v, self.n_rep)
             y = F.scaled_dot_product_attention(
                 q, k, v,
                 attn_mask=None,
                 dropout_p=self.dropout if self.training else 0.0,
                 is_causal=True,
             )
+            y = y.transpose(1, 2).contiguous().view(B, T, self.n_head * self.head_dim)
         elif self.attn_impl == "eager":
+            k = repeat_kv(k, self.n_rep)
+            v = repeat_kv(v, self.n_rep)
             att = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
             mask = torch.ones(T, T, dtype=torch.bool, device=x.device).tril()
             att = att.masked_fill(~mask, float("-inf"))
             att = F.softmax(att, dim=-1)
             att = self.attn_dropout(att)
             y = att @ v
+            y = y.transpose(1, 2).contiguous().view(B, T, self.n_head * self.head_dim)
         else:
             raise ValueError(f"未知 attn_impl: {self.attn_impl}")
 
-        y = y.transpose(1, 2).contiguous().view(B, T, self.n_head * self.head_dim)
         y = self.o_proj(y)
         y = self.resid_dropout(y)
         return y

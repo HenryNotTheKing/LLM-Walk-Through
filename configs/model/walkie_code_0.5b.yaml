@@ -1,0 +1,39 @@
+# Walkie-Code-0.5B 修订配置（~501M 参数）
+# 参考文献：Depth Delusion (2026), ICLR 2026 架构 scaling law, Qwen3-0.6B
+name: walkie_code_0.5b
+model_name: Walkie-Code-0.5B
+
+vocab_size: 65536
+block_size: 4096
+
+# ─── 核心维度 ───
+n_embd: 1280       # W=1280: 在 D_crit≈23 时正好~500M
+n_layer: 24        # 略超 D_crit=23，但比原始 36 层减少 33%
+                   # ICLR 2026: 削减层数损害微调泛化，保留 24 层
+n_head: 20         # 20 × 64 = 1280，整除，干净
+n_head_kv: 5       # 4:1 GQA（原始 3:1），代码推理长输出场景 KV cache 压力更大
+head_dim: 64       # 保持（Flash Attn2 最优粒度；升到128会超参数预算）
+d_ffn: 3456        # = ⌈8/3 × 1280⌉，SwiGLU 标准比
+                   # mlp-to-attn ratio = 3456×3 / (50×64) ≈ 3.24
+                   # ↑ 落在 ICLR 2026 最优区间 [3, 5] 内
+
+# ─── 归一化 / 位置编码 ───
+rms_norm_eps: 1.0e-6
+rope_theta: 5.0e5  # 从 1e6 降至 5e5（block_size=4096，1e6 无必要；
+                   # Llama 3.1/3.2 实测 500k 是 4k 上下文甜点）
+rope_scaling_factor: 1.0
+qk_norm: true      # 保留：Qwen3 全系列采用，稳定小模型训练
+
+# ─── 通用 ───
+dropout: 0.0
+bias: false
+tie_weights: true
+attn_impl: flash_attn2
+init_std: 0.0029   # = 0.02 / sqrt(2 × n_layer)，深度缩放初始化
+                   # 原始 0.02 对 24 层可能过大，此公式来自 Megatron-LM
+loss_chunk_size: 256
+                   # 训练时按 256 token 分块算 CE；两卡 DDP 下比 1024 更稳
+
+special_tokens:
+  endoftext: "<|endoftext|>"
+  pad: "<|pad|>"

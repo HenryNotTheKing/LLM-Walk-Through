@@ -142,9 +142,14 @@ def load_walkie_checkpoint(
     map_location: str | torch.device | None = "cpu",
     strict_arch: bool = True,
     expected_model_cfg: dict[str, Any] | None = None,
+    weights_only: bool = False,
 ) -> dict[str, Any]:
-    """加载 checkpoint 字典。校验版本号与（可选）关键架构字段。"""
-    payload = torch.load(path, map_location=map_location, weights_only=False)
+    """加载 checkpoint 字典。校验版本号与（可选）关键架构字段。
+
+    ``weights_only`` 默认 ``False`` 以兼容含 RNG/optimizer state 的完整 ckpt；
+    若仅需加载自己产生的、可信的权重，建议显式传 ``True`` 以规避反序列化风险。
+    """
+    payload = torch.load(path, map_location=map_location, weights_only=weights_only)
     version = payload.get("version", 0)
     if version > WALKIE_CKPT_VERSION:
         raise RuntimeError(
@@ -218,3 +223,23 @@ def resolve_resume_path(path_or_dir: str | os.PathLike) -> Path:
         if candidates:
             return candidates[-1]
     raise FileNotFoundError(f"无法在 {path_or_dir} 找到可恢复的 Walkie checkpoint")
+
+
+def prune_step_checkpoints(out_dir: str | os.PathLike, keep: int) -> list[Path]:
+    """只保留最近 ``keep`` 个 ``step_*.pt`` 快照，返回被删除的路径。"""
+    if keep < 0:
+        raise ValueError(f"keep 必须非负，得到 {keep}")
+    out = Path(out_dir)
+    candidates = sorted(out.glob("step_*.pt"))
+    if keep == 0:
+        stale = candidates
+    else:
+        stale = candidates[:-keep]
+    removed: list[Path] = []
+    for path in stale:
+        try:
+            path.unlink()
+            removed.append(path)
+        except FileNotFoundError:
+            pass
+    return removed

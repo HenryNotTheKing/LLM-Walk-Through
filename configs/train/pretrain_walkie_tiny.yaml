@@ -6,9 +6,11 @@ data:
   stages:
     main:
       bin: null
+      val_bin: null
       dtype: uint16
     anneal:
       bin: null
+      val_bin: null
       dtype: uint16
 
 train:
@@ -16,6 +18,8 @@ train:
   block_size: 64
   batch_size: 4
   grad_accum_steps: 1
+  sampling:
+    mode: shuffled_sequential
   total_steps: 10
   warmup_steps: 2
   anneal_start_ratio: 0.8

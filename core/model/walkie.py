@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 
 from core.attention.walkie_attention import WalkieCausalSelfAttention
 from core.ffn.swiglu import SwiGLUMLP
@@ -25,13 +26,8 @@ from core.position.rope import RotaryPositionalEmbedding
 
 def _default_special_tokens() -> dict[str, str]:
     return {
-        "fim_prefix": "<fim_prefix>",
-        "fim_middle": "<fim_middle>",
-        "fim_suffix": "<fim_suffix>",
-        "fim_pad": "<fim_pad>",
-        "repo_name": "<|repo_name|>",
-        "file_sep": "<|file_sep|>",
         "endoftext": "<|endoftext|>",
+        "pad": "<|pad|>",
     }
 
 
@@ -63,8 +59,10 @@ class WalkieConfig:
     tie_weights: bool = True
     attn_impl: str = "sdpa"
     init_std: float = 0.02
+    gradient_checkpointing: bool = False
+    loss_chunk_size: int | None = 1024
 
-    # FIM / repo 级 special tokens（数据管线侧使用，模型这里只持有元数据）
+    # 数据管线侧使用的 special tokens，连续 token bin 只写 endoftext。
     special_tokens: dict[str, str] = field(default_factory=_default_special_tokens)
 
     @classmethod
@@ -158,6 +156,35 @@ class WalkieForCausalLM(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=std)
 
+    def _chunked_cross_entropy(
+        self,
+        hidden: torch.Tensor,
+        targets: torch.Tensor,
+    ) -> torch.Tensor:
+        chunk_size = self.cfg.loss_chunk_size
+        if chunk_size is None or chunk_size <= 0 or hidden.size(1) <= chunk_size:
+            logits = self.lm_head(hidden)
+            return F.cross_entropy(
+                logits.reshape(-1, logits.size(-1)),
+                targets.reshape(-1),
+                ignore_index=-1,
+            )
+
+        total_loss = hidden.new_zeros(())
+        total_tokens = targets.ne(-1).sum()
+        for start in range(0, hidden.size(1), chunk_size):
+            stop = min(start + chunk_size, hidden.size(1))
+            logits = self.lm_head(hidden[:, start:stop, :])
+            total_loss = total_loss + F.cross_entropy(
+                logits.reshape(-1, logits.size(-1)),
+                targets[:, start:stop].reshape(-1),
+                ignore_index=-1,
+                reduction="sum",
+            )
+
+        denom = total_tokens.clamp_min(1).to(total_loss.dtype)
+        return total_loss / denom
+
     # ----- 参数统计辅助 -----
     def num_parameters(self, only_trainable: bool = False) -> int:
         params = (p for p in self.parameters() if (not only_trainable) or p.requires_grad)
@@ -169,21 +196,29 @@ class WalkieForCausalLM(nn.Module):
         self,
         idx: torch.Tensor,
         targets: torch.Tensor | None = None,
-    ) -> tuple[torch.Tensor, torch.Tensor | None]:
+        *,
+        return_logits: bool = True,
+    ) -> tuple[torch.Tensor | None, torch.Tensor | None]:
         B, T = idx.shape
         if T > self.cfg.block_size:
             raise ValueError(f"输入序列长度 {T} 超过 block_size {self.cfg.block_size}")
 
         x = self.drop(self.tok_embeddings(idx))
-        for layer in self.layers:
-            x = layer(x)
+        if self.cfg.gradient_checkpointing and self.training:
+            for layer in self.layers:
+                x = checkpoint(layer, x, use_reentrant=False)
+        else:
+            for layer in self.layers:
+                x = layer(x)
         x = self.norm_out(x)
 
         if targets is not None:
+            if not return_logits:
+                return None, self._chunked_cross_entropy(x, targets)
             logits = self.lm_head(x)
             loss = F.cross_entropy(
-                logits.view(-1, logits.size(-1)),
-                targets.view(-1),
+                logits.reshape(-1, logits.size(-1)),
+                targets.reshape(-1),
                 ignore_index=-1,
             )
             return logits, loss

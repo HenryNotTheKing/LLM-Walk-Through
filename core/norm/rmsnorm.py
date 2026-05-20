@@ -33,4 +33,4 @@ class RMSNorm(nn.Module):
         x_fp32 = x.float()
         rms = x_fp32.pow(2).mean(dim=-1, keepdim=True).add(self.eps).rsqrt()
         out = (x_fp32 * rms).to(orig_dtype)
-        return out * self.weight
+        return out * self.weight.to(orig_dtype)
