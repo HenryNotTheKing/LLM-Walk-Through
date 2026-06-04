@@ -1,0 +1,111 @@
+defaults:
+  model: configs/model/walkie_code_0.5b.yaml
+
+data:
+  path: data/RL/deepcoder_preview_rl_function
+  paths: []
+  tokenizer_path: data/cache/walkie_code/tokenizer.json
+  template: plain_lower
+  eos_token: "<|endoftext|>"
+  pad_token: "<|pad|>"
+
+train:
+  out_dir: runs/walkie_code_0.5b_dapo_deepcoder
+  block_size: 4096
+  total_steps: 1000
+  stop_step: null
+  warmup_steps: 50
+  decay_shape: cosine
+  log_interval: 1
+  ckpt_interval: 50
+  grad_clip: 1.0
+  device: auto
+  dtype: auto
+  amp: true
+  seed: 42
+  gradient_checkpointing: true
+  adamw:
+    peak_lr: 1.0e-6
+    final_lr: 1.0e-7
+  muon:
+    peak_lr: 0.0001
+    final_lr: 0.00001
+  swanlab:
+    enabled: true
+    mode: online
+    project: walkie
+    experiment_name: walkie-code-0.5b-dapo-deepcoder
+    workspace: null
+    description: Walkie-Code-0.5B DAPO on DeepCoder function verifier data
+    tags: [walkie, code, 0.5b, rl, dapo, deepcoder]
+
+rl:
+  algorithm: dapo
+  prompt_batch_size: 8
+  num_generations: 8
+  temperature: 0.8
+  top_p: 0.95
+  max_prompt_length: 2048
+  max_completion_length: 512
+  logprob_micro_batch_size: 1
+  stop: []
+  grpo:
+    clip_range: 0.2
+    kl_coef: 0.02
+  dapo:
+    dynamic_filtering: true
+    clip_low: 0.2
+    clip_high: 0.28
+    overlong_filtering: true
+    overlong_penalty: 0.2
+    loss_normalization: token
+
+rollout:
+  backend: torch
+  tensor_parallel_size: 1
+  dtype: auto
+  export_dir: runs/walkie_code_0.5b_dapo_deepcoder/hf_export
+  export_before_rollout: true
+  fake_response: "```python\nprint(1)\n```"
+
+sandbox:
+  enabled: true
+  base_urls: ["http://127.0.0.1:18901"]
+  timeout: 20.0
+  retries: 1
+  clear_session: true
+  tests_field: tests
+  test_program_template_field: test_program_template
+  max_concurrency: 8
+
+ref:
+  checkpoint: null
+  offload: none
+
+rewards:
+  - name: code_execution
+    weight: 1.0
+    kwargs:
+      pass_markers: ["ALL TESTS PASSED"]
+      fail_markers: ["FAILED", "Traceback", "Error", "AssertionError", "TimeoutExpired"]
+  - name: repeat_penalty
+    weight: 0.05
+    kwargs:
+      max_repetition_ratio: 0.35
+
+bench_loop:
+  segment_steps: 200
+  eval_interval: 200
+  eval:
+    dataset: openai_humaneval
+    bench_root: data/bench
+    sandbox_urls: ["http://127.0.0.1:18901"]
+    batch_size: 1024
+    max_tokens: 512
+    temperature: 0.2
+    top_p: 0.95
+    timeout: 10.0
+    max_concurrency: 32
+
+distributed:
+  backend: ddp

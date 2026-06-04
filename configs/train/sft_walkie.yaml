@@ -1,0 +1,45 @@
+defaults:
+  model: configs/model/walkie_code_0.5b.yaml
+
+data:
+  path: null
+  paths: null
+  tokenizer_path: null
+  template: chatml_lowfreq_alias
+  eos_token: "<|endoftext|>"
+  pad_token: "<|pad|>"
+
+train:
+  out_dir: runs/walkie_code_0.5b_sft
+  block_size: 4096
+  batch_size: 2
+  grad_accum_steps: 16
+  total_steps: 2000
+  warmup_steps: 100
+  decay_shape: cosine
+  log_interval: 10
+  ckpt_interval: 100
+  grad_clip: 1.0
+  device: auto
+  dtype: auto
+  amp: true
+  seed: 42
+  gradient_checkpointing: true
+  resume_sample_index: 0
+  adamw:
+    peak_lr: 5.0e-5
+    final_lr: 5.0e-6
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-8
+    weight_decay: 0.05
+  muon:
+    peak_lr: 0.003
+    final_lr: 0.0003
+    momentum: 0.95
+    nesterov: true
+    weight_decay: 0.0
+    ns_steps: 5
+
+distributed:
+  backend: ddp

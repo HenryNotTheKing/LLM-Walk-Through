@@ -1,0 +1,29 @@
+model: runs/walkie_code_0.5b_vllm_hf
+dataset: all
+bench_root: data/bench
+output: runs/eval/walkie_code_0.5b_passk
+sandbox_urls:
+  - http://127.0.0.1:18901
+  - http://127.0.0.1:18902
+  - http://127.0.0.1:18903
+  - http://127.0.0.1:18904
+use_ray: false
+ray_workers: null
+backend: hf
+device: cuda:0
+attn_implementation: flash_attention_2
+dtype: bf16
+batch_size: 8
+tensor_parallel_size: 1
+n: 8
+temperature: 0.2
+top_p: 0.95
+max_tokens: 512
+timeout: 10.0
+max_concurrency: 32
+pass_at: [1, 4, 8]
+prompt_style: plain_dialog
+limit: null
+# Dual-GPU tuning (see scripts/run_code_bench_passk_dual_gpu.sh):
+# gpu0_batch_size: 4   # GPU0 has ~15GB occupied by other jobs
+# gpu1_batch_size: 8   # GPU1 is mostly free

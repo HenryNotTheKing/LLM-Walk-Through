@@ -1,0 +1,74 @@
+defaults:
+  model: configs/model/walkie_code_0.5b.yaml
+
+data:
+  path: null
+  paths:
+    - data/sft/kodcode_v1_sft_r1_bench_aligned
+  tokenizer_path: data/cache/walkie_code/tokenizer.json
+  template: plain_lower
+  eos_token: "<|endoftext|>"
+  pad_token: "<|pad|>"
+
+train:
+  out_dir: runs/walkie_code_0.5b_sft_kodcode_bench
+  block_size: 4096
+  batch_size: 4
+  grad_accum_steps: 8
+  total_steps: 7680
+  stop_step: null
+  warmup_steps: 300
+  decay_shape: cosine
+  log_interval: 10
+  ckpt_interval: 250
+  save_step_checkpoints: true
+  keep_step_checkpoints: 3
+  grad_clip: 1.0
+  device: auto
+  dtype: auto
+  amp: true
+  seed: 42
+  gradient_checkpointing: true
+  resume_sample_index: 0
+  compile: false
+  ddp_static_graph: false
+  adamw:
+    peak_lr: 3.0e-5
+    final_lr: 3.0e-6
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-8
+    weight_decay: 0.02
+  muon:
+    peak_lr: 0.0018
+    final_lr: 0.00018
+    momentum: 0.95
+    nesterov: true
+    weight_decay: 0.0
+    ns_steps: 5
+  swanlab:
+    enabled: true
+    mode: online
+    project: walkie
+    experiment_name: walkie-code-0.5b-sft-kodcode-bench
+    workspace: null
+    description: Walkie-Code-0.5B KodCode bench-aligned SFT
+    tags: [walkie, code, 0.5b, sft, kodcode, bench]
+
+bench_loop:
+  segment_steps: 1000
+  full_eval_interval: 2000
+  smoke_limit: 64
+  full_limit: null
+  eval:
+    bench_root: data/bench
+    sandbox_urls: ["http://127.0.0.1:18901"]
+    batch_size: 1024
+    max_tokens: 512
+    temperature: 0.2
+    top_p: 0.95
+    timeout: 10.0
+    max_concurrency: 32
+
+distributed:
+  backend: ddp

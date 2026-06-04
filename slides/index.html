@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Walk-Through 课堂汇报</title>
+
+  <!-- Reveal.js -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/theme/white.css">
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="css/custom.css">
+
+  <!-- MathJax for LaTeX formulas in slides -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.min.js" async></script>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+      <!-- ========== 封面页 ========== -->
+      <section>
+        <h1 class="cover-title">LLM Walk-Through</h1>
+        <p class="cover-subtitle">从原理到实现，亲手解剖现代大语言模型的演进轨迹</p>
+        <div class="cover-meta">
+          <p>课堂汇报</p>
+          <p>2026年6月</p>
+        </div>
+      </section>
+
+      <!-- ========== 目录页 ========== -->
+      <section>
+        <h2>汇报大纲</h2>
+        <p style="font-size: 0.85em; color: #666; margin-bottom: 1em;">
+          以 GPT-2 为基线，逐步替换现代组件，展示架构演进
+        </p>
+        <table class="toc-table">
+          <tr><th>序号</th><th>模块</th><th>核心改进</th></tr>
+          <tr><td>01</td><td><span class="tag tag-model">Model</span> GPT-2 基线</td><td>Pre-LN, 因果语言建模</td></tr>
+          <tr><td>02</td><td><span class="tag tag-attention">Attention</span> 多头注意力</td><td>Scaled Dot-Product, Causal Mask</td></tr>
+          <tr><td>03</td><td><span class="tag tag-position">Position</span> RoPE</td><td>旋转位置编码，长度外推</td></tr>
+          <tr><td>04</td><td><span class="tag tag-norm">Norm</span> RMSNorm</td><td>去除 centering，省内存</td></tr>
+          <tr><td>05</td><td><span class="tag tag-ffn">FFN</span> SwiGLU</td><td>门控激活，8/3 扩展比</td></tr>
+          <tr><td>06</td><td><span class="tag tag-attention">Attention</span> GQA + QK-Norm</td><td>分组查询，logit 稳定</td></tr>
+          <tr><td>07</td><td><span class="tag tag-model">Model</span> Walkie 完整模型</td><td>现代架构组装</td></tr>
+        </table>
+      </section>
+
+      <!-- ========== 模块 01: GPT-2 基线 ========== -->
+      <section>
+        <h2><span class="tag tag-model">Model</span> GPT-2 基线架构</h2>
+        <p style="font-size: 0.8em; color: #666; margin-bottom: 0.5em;">
+          预归一化残差块、权重共享、因果掩码 —— 一切故事的起点
+        </p>
+        <iframe class="notebook-frame" src="notebooks/02_gpt2_baseline.html"></iframe>
+      </section>
+
+      <!-- ========== 模块 02: 因果多头注意力 ========== -->
+      <section>
+        <h2><span class="tag tag-attention">Attention</span> 因果多头注意力 (MHA)</h2>
+        <p style="font-size: 0.8em; color: #666; margin-bottom: 0.5em;">
+          Scaled Dot-Product + Causal Mask + GPT-2 的 fused QKV 优化
+        </p>
+        <iframe class="notebook-frame" src="notebooks/03_attention_mha.html"></iframe>
+      </section>
+
+      <!-- ========== 模块 03: RoPE ========== -->
+      <section>
+        <h2><span class="tag tag-position">Position</span> RoPE 旋转位置编码</h2>
+        <p style="font-size: 0.8em; color: #666; margin-bottom: 0.5em;">
+          旋转公式推导、相对位置感知点积、长度外推能力
+        </p>
+        <iframe class="notebook-frame" src="notebooks/01_rope.html"></iframe>
+      </section>
+
+      <!-- ========== 模块 04: RMSNorm ========== -->
+      <section>
+        <h2><span class="tag tag-norm">Norm</span> RMSNorm 归一化</h2>
+        <p style="font-size: 0.8em; color: #666; margin-bottom: 0.5em;">
+          去除 centering 与 bias，深层网络的稳定性与内存节省
+        </p>
+        <iframe class="notebook-frame" src="notebooks/01_rmsnorm.html"></iframe>
+      </section>
+
+      <!-- ========== 模块 05: SwiGLU ========== -->
+      <section>
+        <h2><span class="tag tag-ffn">FFN</span> SwiGLU 前馈网络</h2>
+        <p style="font-size: 0.8em; color: #666; margin-bottom: 0.5em;">
+          门控双路设计 (gate + up)，SiLU 激活，8/3 扩展比
+        </p>
+        <iframe class="notebook-frame" src="notebooks/01_swiglu.html"></iframe>
+      </section>
+
+      <!-- ========== 模块 06: GQA + QK-Norm ========== -->
+      <section>
+        <h2><span class="tag tag-attention">Attention</span> GQA + QK-Norm 现代注意力</h2>
+        <p style="font-size: 0.8em; color: #666; margin-bottom: 0.5em;">
+          分组查询注意力 (KV cache 缩减)、QK-Norm (logit 爆炸防护)
+        </p>
+        <iframe class="notebook-frame" src="notebooks/04_gqa_qk_norm_rope.html"></iframe>
+      </section>
+
+      <!-- ========== 模块 07: Walkie 完整模型 ========== -->
+      <section>
+        <h2><span class="tag tag-model">Model</span> Walkie 完整模型组装</h2>
+        <p style="font-size: 0.8em; color: #666; margin-bottom: 0.5em;">
+          RMSNorm + GQA + RoPE + SwiGLU + Chunked Cross-Entropy
+        </p>
+        <iframe class="notebook-frame" src="notebooks/04_code_causal_lm.html"></iframe>
+      </section>
+
+      <!-- ========== 结尾页 ========== -->
+      <section>
+        <h2>总结</h2>
+        <ul>
+          <li><strong>模块化替换</strong>：每个组件可独立升级，从 GPT-2 平滑过渡到现代架构</li>
+          <li><strong>理论 + 代码</strong>：每个模块都配有数学推导与可运行实现</li>
+          <li><strong>训练闭环</strong>：预训练、断点续训、学习率调度、数据加载全覆盖</li>
+        </ul>
+        <p style="margin-top: 2em; font-size: 0.9em; color: #555;">
+          项目地址：<code>github.com/HenryNotTheKing/LLM-Walk-Through</code>
+        </p>
+        <p style="font-size: 0.85em; color: #777; margin-top: 1em;">
+          感谢聆听！
+        </p>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Reveal.js -->
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      slideNumber: 'c/t',
+      width: 1280,
+      height: 720,
+      margin: 0.04,
+      transition: 'slide',
+      center: false,
+      controls: true,
+      progress: true,
+      history: true,
+      keyboard: true,
+      overview: true,
+      touch: true,
+    });
+  </script>
+</body>
+</html>

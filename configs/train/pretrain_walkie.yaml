@@ -18,7 +18,7 @@ train:
   block_size: 4096
 
   # ─── Batch 配置 ───────────────────────────────────
-  batch_size: 16           # 每卡 micro-batch；两卡 DDP 用 8 比 16 更稳，避免 bucket 峰值 OOM
+  batch_size: 8          # 每卡 micro-batch；两卡 DDP 用 8 比 16 更稳，避免 bucket 峰值 OOM
   grad_accum_steps: 16    # 8×16×4096×2 = 1,048,576 tokens/step，保持总 token/step 不变
   sampling:
     mode: shuffled_sequential  # 构建 block 起点索引，shuffle 后无放回顺序读取
