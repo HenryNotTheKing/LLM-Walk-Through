@@ -36,7 +36,6 @@ data/raw/
 data/processed/
 checkpoints/
 runs/
-wandb/
 logs/
 
 
@@ -45,4 +44,7 @@ logs/
 Thumbs.db
 
 .claude/
+swanlog/
 
+slides/
+tests/
