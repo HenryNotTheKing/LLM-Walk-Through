@@ -22,8 +22,9 @@
 
 | 目录 | 作用 |
 |---|---|
-| `core/attention/` | 注意力模块实现（当前为 MHA，后续可扩展 GQA/MLA 等）。 |
-| `core/ffn/` | 前馈网络实现（当前 MLP，后续可扩展 SwiGLU/MoE）。 |
+| `core/attention/` | 注意力模块：MHA、MQA、GQA、MLA、滑动窗口、线性注意力等。 |
+| `core/residual/` | 跨层残差拓扑：Kimi AttnRes、DeepSeek mHC 等。 |
+| `core/ffn/` | 前馈网络：GELU MLP、SwiGLU、GEGLU、MoE 等。 |
 | `core/kv_cache/` | KV Cache 相关模块预留/实现。 |
 | `core/model/` | 模型组装入口（如 GPT-2 主体）。 |
 | `core/norm/` | 归一化层实现（如 LayerNorm）。 |
