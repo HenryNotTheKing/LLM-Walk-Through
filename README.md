@@ -20,7 +20,7 @@
 | Walkie-Code 现代架构（RMSNorm + RoPE + GQA + QK-Norm + SwiGLU） | ✅ | [`core/model/walkie.py`](core/model/walkie.py) |
 | Walkie-Code 0.5B / 1B 预训练（WSD + AdamW + Muon） | ✅ | [`train/walkie_pretrain.py`](train/walkie_pretrain.py) |
 | 监督微调（SFT） | ✅ | [`train/walkie_sft.py`](train/walkie_sft.py) |
-| 强化学习：GRPO / DAPO | ✅ | [`train/walkie_rl.py`](train/walkie_rl.py) |
+| 强化学习：DAPO / MCPO | ✅ | [`train/walkie_rl.py`](train/walkie_rl.py) |
 | 代码评测：HumanEval / KodCode / 自定义 code bench | ✅ | [`posttrain/eval/`](posttrain/eval/) |
 | HF 权重导出与 vLLM 推理 | ✅ | [`scripts/export_walkie_to_hf.py`](scripts/export_walkie_to_hf.py) |
 
